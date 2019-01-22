@@ -4,6 +4,7 @@ $base = __DIR__ . '/../app/';
 $folders = [
     'config',
     'lib',
+    'middleware',
     'model',
     'route'
 ];

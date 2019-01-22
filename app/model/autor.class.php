@@ -26,7 +26,7 @@ class Autor
 			$stm->execute();
             $tuples=$stm->fetchAll();
             $this->resposta->setDades($tuples);    // array de tuples
-			$this->resposta->setCorrecta(true);       // La resposta es correcta        
+			$this->resposta->setCorrecta(true,$stm->rowCount());       // La resposta es correcta        
             return $this->resposta;
 		}
         catch(Exception $e)
@@ -43,10 +43,11 @@ class Autor
 			$result = array();                        
             $stm = $this->conn->prepare("SELECT id_aut,nom_aut,fk_nacionalitat FROM autors where id_aut=$id");
             //$stm->bindValue(':id_aut',$id);
-			$stm->execute();
+            $stm->execute();
+            $rc=$stm->rowCount();
             $tupla=$stm->fetch();
             $this->resposta->setDades($tupla);    // array de tuples
-			$this->resposta->setCorrecta(true);       // La resposta es correcta        
+			$this->resposta->setCorrecta(true,$rc);       // La resposta es correcta        
             return $this->resposta;
 		}
         catch(Exception $e)
@@ -80,7 +81,7 @@ class Autor
                 $stm->bindValue(':fk_nacionalitat',!empty($fk_nacionalitat)?$fk_nacionalitat:NULL,PDO::PARAM_STR);
                 $stm->execute();
             
-       	        $this->resposta->setCorrecta(true,"insertat $id_aut");
+       	        $this->resposta->setCorrecta(true,$stm->rowCount(),"insertat $id_aut");
                 return $this->resposta;
         }
         catch (Exception $e) 
@@ -90,21 +91,78 @@ class Autor
 		}
     }   
     
-    public function update($data)
-    {
-        // TODO
+    public function update($data) {
+        try {
+            $id_aut = $data['id'];
+            $nom_aut = $data['nom_aut'];
+            $fk_nacionalitat = $data['fk_nacionalitat'];
+
+            $sql = "UPDATE AUTORS SET NOM_AUT=:nom_aut, FK_NACIONALITAT=:fk_nacionalitat WHERE ID_AUT=:id_aut";
+            $stm = $this->conn->prepare($sql);
+            $stm->bindValue(':id_aut', $id_aut,PDO::PARAM_INT);
+            $stm->bindValue(':nom_aut', $nom_aut,PDO::PARAM_STR);
+            $stm->bindValue(':fk_nacionalitat', !empty($fk_nacionalitat) ? $fk_nacionalitat : NULL, PDO::PARAM_STR);
+            $stm->execute();
+            $this->resposta->setCorrecta(true,$stm->rowCount(),"$id_aut-$nom_aut-$fk_nacionalitat");
+            return $this->resposta;
+        } catch (Exception $e) {
+            $this->resposta->setCorrecta(false,0, "Error mofificant: " . $e->getMessage().$sql);
+            return $this->resposta;
+        }
     }
 
-    
-    
-    public function delete($id)
-    {
-        // TODO
+    public function delete($id) {
+        try {
+            $sql = "DELETE FROM `AUTORS` WHERE ID_AUT=:id_aut";
+            
+            $stm = $this->conn->prepare($sql);
+            $stm->bindValue(':id_aut', $id);
+            $stm->execute();
+            $this->resposta->setCorrecta(true,$stm->rowCount());
+            return $this->resposta;
+        } catch (Exception $ex) {
+            $this->resposta->setCorrecta(false, "Error eliminant: " . $e->getMessage());
+            return $this->resposta;
+        }
     }
 
-    public function filtra($where,$orderby,$offset,$count)
-    {
-        // TODO
+    public function filtra($where, $orderby, $offset, $count) {
+        try {
+            $orderby = (!empty($orderby) ? $orderby : "id_aut");
+            $offset = (!empty($offset) ? $offset : "0");
+            $count = (!empty($count) ? $count : "20");
+
+            $orderby = str_replace("-"," ",$orderby); //atribut-desc -> atribut desc
+            
+            $wheresql="";
+            if ($where!='') {
+                $whereset = explode('*',$where);
+                foreach ($whereset as $w) {
+                  if ($wheresql!='') { $wheresql.=' and ';}
+                  $clauvalor=explode("-",$w);
+                  $wheresql.=$clauvalor[0]." like '%".$clauvalor[1]."%'";
+                }          
+                $wheresql="WHERE ".$wheresql;
+            } // clau-valor*clau-valor -> clau like '%valor%' and clau like '%valor%'
+    
+
+            $sql = "SELECT id_aut FROM AUTORS $wheresql";
+            $stm = $this->conn->prepare($sql);
+            $stm->execute();
+            $numrows=$stm->rowCount();
+
+            
+            $sql = "SELECT id_aut,nom_aut,fk_nacionalitat FROM AUTORS $wheresql ORDER BY $orderby LIMIT $offset,$count";
+            $stm = $this->conn->prepare($sql);
+            $stm->execute();
+            $tuples = $stm->fetchAll();
+            $this->resposta->setDades($tuples);
+            $this->resposta->setCorrecta(true,$numrows);      
+            return $this->resposta;
+        } catch (Exception $e) {
+            $this->resposta->setCorrecta(false, "Error cercant: " . $e->getMessage()."--$sql");
+            return $this->resposta;
+        }
     }
     
           
